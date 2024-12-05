@@ -10,6 +10,7 @@
 
 namespace semantic_map_manager {
 
+// 用于管理速度限制相关的交通信号 (没有起作用)
 class TrafficSignalManager {
  public:
   using State = common::State;

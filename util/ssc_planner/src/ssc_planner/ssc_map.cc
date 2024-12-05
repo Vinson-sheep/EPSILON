@@ -48,6 +48,7 @@ void SscMap::UpdateMapOrigin(const common::FrenetState &ori_fs) {
 ErrorType SscMap::GetInitialCubeUsingSeed(
     const Vec3i &seed_0, const Vec3i &seed_1,
     common::AxisAlignedCubeNd<int, 3> *cube) const {
+  // 取seed_0和seed_1作为顶点
   std::array<int, 3> lb;
   std::array<int, 3> ub;
   lb[0] = std::min(seed_0(0), seed_1(0));
@@ -67,7 +68,9 @@ ErrorType SscMap::ConstructSscMap(
     const vec_E<Vec2f> &obstacle_grids) {
   p_3d_grid_->clear_data();
   p_3d_inflated_grid_->clear_data();
+  // 静态障碍物能够直接填充到地图
   FillStaticPart(obstacle_grids);
+  // 动态障碍物需要借助cv函数
   FillDynamicPart(sur_vehicle_trajs_fs);
   return kSuccess;
 }
@@ -98,12 +101,14 @@ ErrorType SscMap::ClearDrivingCorridor() {
 ErrorType SscMap::ConstructCorridorUsingInitialTrajectory(
     GridMap3D *p_grid, const vec_E<common::FsVehicle> &trajs) {
   // ~ Stage I: Get seeds
+  // 将trajs转换为种子
   vec_E<Vec3i> traj_seeds;
   int num_states = static_cast<int>(trajs.size());
   if (num_states > 1) {
     bool first_seed_determined = false;
     for (int k = 0; k < num_states; ++k) {
       std::array<decimal_t, 3> p_w = {};
+      // 需要将起始状态也插入到种子路径中
       if (!first_seed_determined) {
         decimal_t s_0 = initial_fs_.vec_s[0];
         decimal_t d_0 = initial_fs_.vec_dt[0];
@@ -144,6 +149,7 @@ ErrorType SscMap::ConstructCorridorUsingInitialTrajectory(
   }
 
   // ~ Stage II: Inflate cubes
+  // 
   common::DrivingCorridor driving_corridor;
   bool is_valid = true;
   auto seed_num = static_cast<int>(traj_seeds.size());
@@ -181,11 +187,14 @@ ErrorType SscMap::ConstructCorridorUsingInitialTrajectory(
       driving_cube.seeds.push_back(traj_seeds[i]);
       driving_corridor.cubes.push_back(driving_cube);
     } else {
+      // 如果走廊已经包含了种子，则直接跳过
       if (CheckIfCubeContainsSeed(driving_corridor.cubes.back().cube,
                                   traj_seeds[i])) {
         driving_corridor.cubes.back().seeds.push_back(traj_seeds[i]);
         continue;
-      } else {
+      } 
+      // 否则，基于最后两个种子，生成多面体
+      else {
         // ~ Get the last seed in cube
         Vec3i seed_r = driving_corridor.cubes.back().seeds.back();
         driving_corridor.cubes.back().seeds.pop_back();
@@ -223,6 +232,7 @@ ErrorType SscMap::ConstructCorridorUsingInitialTrajectory(
     }
   }
   if (is_valid) {
+    // 此处跳过了relax
     // CorridorRelaxation(p_grid, &driving_corridor);
     // ~ Cut cube on time axis
     driving_corridor.cubes.back().cube.upper_bound[2] = traj_seeds.back()(2);
@@ -388,7 +398,7 @@ ErrorType SscMap::InflateCubeIn3dGrid(GridMap3D *p_grid,
   int x_n_step = dir_step[1];
   int y_p_step = dir_step[2];
   int y_n_step = dir_step[3];
-  int z_p_step = dir_step[4];
+  int z_p_step = dir_step[4]; // [5]没有用上
 
   int t_max_grids = cube->lower_bound[2] + config_.kMaxNumOfGridAlongTime;
 
@@ -549,7 +559,7 @@ bool SscMap::CheckIfCubeIsFree(
   int f1_max = cube.upper_bound[1];
   int f2_min = cube.lower_bound[2];
   int f2_max = cube.upper_bound[2];
-
+  // 三层for循环遍历
   int i, j, k;
   std::array<int, 3> coord;
   bool is_free;
@@ -706,12 +716,15 @@ ErrorType SscMap::GetFinalGlobalMetricCubesList() {
 
 ErrorType SscMap::FillStaticPart(const vec_E<Vec2f> &obs_grid_fs) {
   for (int i = 0; i < static_cast<int>(obs_grid_fs.size()); ++i) {
+    // s小于0，说明不在地图内
     if (obs_grid_fs[i](0) <= 0) {
       continue;
     }
     for (int k = 0; k < config_.map_size[2]; ++k) {
+      // 生成slt插入点
       std::array<decimal_t, 3> pt = {{obs_grid_fs[i](0), obs_grid_fs[i](1),
                                       (double)k * config_.map_resolution[2]}};
+      // 生成对应索引
       auto coord = p_3d_grid_->GetCoordUsingGlobalPosition(pt);
       if (p_3d_grid_->CheckCoordInRange(coord)) {
         p_3d_grid_->SetValueUsingCoordinate(coord, 100);
@@ -765,6 +778,7 @@ ErrorType SscMap::FillMapWithFsVehicleTraj(
     if (!is_valid) {
       continue;
     }
+    // 这里是借用cv函数填充多面体内部
     std::vector<std::vector<cv::Point2i>> vv_coord_cv;
     std::vector<cv::Point2i> v_coord_cv;
     common::ShapeUtils::GetCvPoint2iVecUsingCommonPoint2iVec(v_coord,

@@ -26,6 +26,7 @@
 
 namespace semantic_map_manager {
 
+// 实时更新车辆、车道线、交通信号
 class SemanticMapManager {
  public:
   using ObstacleMapType = uint8_t;
@@ -56,6 +57,7 @@ class SemanticMapManager {
                                      const common::VehicleParam &param_b,
                                      const common::State &state_b, bool *res);
 
+  // 未实现
   ErrorType CheckCollisionUsingStateVec(
       const vec_E<common::State> state_vec) const;
 
@@ -300,7 +302,7 @@ class SemanticMapManager {
   bool use_right_hand_axis_ = true;
 
   common::Vehicle ego_vehicle_;
-  GridMap2D obstacle_map_;
+  GridMap2D  obstacle_map_;
   std::set<std::array<decimal_t, 2>> obstacle_grids_;
   // * surrounding vehicles is constructed by radius
   common::VehicleSet surrounding_vehicles_;
@@ -324,7 +326,7 @@ class SemanticMapManager {
 
   TicToc global_timer_;
   TrafficSignalManager traffic_singal_manager_;
-  ConfigLoader *p_config_loader_;
+  ConfigLoader *p_config_loader_; // 没有用上
 
   common::RssChecker rss_checker_;
 

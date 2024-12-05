@@ -30,17 +30,19 @@ Vehicle::Vehicle(const VehicleParam &param, const State &state)
     : param_(param), state_(state) {}
 
 Vehicle::Vehicle(const int &id, const VehicleParam &param, const State &state)
-    : id_(id), param_(param), state_(state) {}
+    : id_(id), param_(param), staRet3DofStatete_(state) {}
 
 Vehicle::Vehicle(const int &id, const std::string &subclass,
                  const VehicleParam &param, const State &state)
     : id_(id), subclass_(subclass), param_(param), state_(state) {}
 
 Vec3f Vehicle::Ret3DofState() const {
+  // 后轮中心
   return Vec3f(state_.vec_position(0), state_.vec_position(1), state_.angle);
 }
 
 ErrorType Vehicle::Ret3DofStateAtGeometryCenter(Vec3f *state) const {
+  // 自车中心
   decimal_t cos_theta = cos(state_.angle);
   decimal_t sin_theta = sin(state_.angle);
   decimal_t x = state_.vec_position(0) + param_.d_cr() * cos_theta;
@@ -60,6 +62,7 @@ void Vehicle::print() const {
 }
 
 OrientedBoundingBox2D Vehicle::RetOrientedBoundingBox() const {
+  // 自车中心 + 其他参数
   OrientedBoundingBox2D obb;
   double cos_theta = cos(state_.angle);
   double sin_theta = sin(state_.angle);
@@ -72,11 +75,13 @@ OrientedBoundingBox2D Vehicle::RetOrientedBoundingBox() const {
 }
 
 ErrorType Vehicle::RetVehicleVertices(vec_E<Vec2f> *vertices) const {
+  // 车辆四个角
   SemanticsUtils::GetVehicleVertices(param_, state_, vertices);
   return kSuccess;
 }
 
 ErrorType Vehicle::RetBumperVertices(std::array<Vec2f, 2> *vertices) const {
+  // 车辆中心线前后两个点
   decimal_t cos_theta = cos(state_.angle);
   decimal_t sin_theta = sin(state_.angle);
 
@@ -224,6 +229,7 @@ template <typename T, int N_DIM>
 std::array<decimal_t, N_DIM>
 GridMapND<T, N_DIM>::GetRoundedPosUsingGlobalPosition(
     const std::array<decimal_t, N_DIM> &p_w) const {
+  // 将位置纠正到格子中心
   std::array<int, N_DIM> coord = {};
   for (int i = 0; i < N_DIM; ++i) {
     coord[i] = std::round((p_w[i] - origin_[i]) / dims_resolution_[i]);
@@ -256,6 +262,7 @@ ErrorType GridMapND<T, N_DIM>::GetCoordUsingGlobalMetricOnSingleDim(
 template <typename T, int N_DIM>
 ErrorType GridMapND<T, N_DIM>::GetGlobalMetricUsingCoordOnSingleDim(
     const int &idx, const int &i, decimal_t *metric) const {
+  // 获取索引边界实际的double边界
   *metric = idx * dims_resolution_[i] + origin_[i];
   return kSuccess;
 }
@@ -313,6 +320,7 @@ ErrorType GridMapND<T, N_DIM>::SetNDimSteps(
 template <typename T, int N_DIM>
 ErrorType GridMapND<T, N_DIM>::SetDataSize(
     const std::array<int, N_DIM> &dims_size) {
+  // 计算所需要的数据量
   int total_ele_num = 1;
   for (int i = 0; i < N_DIM; ++i) {
     total_ele_num = total_ele_num * dims_size_[i];
@@ -469,7 +477,7 @@ ErrorType SemanticsUtils::GetOrientedBoundingBoxForVehicleUsingState(
   obb->width = param.width();
   return kSuccess;
 }
-
+// 计算车辆四个角
 ErrorType SemanticsUtils::GetVehicleVertices(const VehicleParam &param,
                                              const State &state,
                                              vec_E<Vec2f> *vertices) {
@@ -477,7 +485,7 @@ ErrorType SemanticsUtils::GetVehicleVertices(const VehicleParam &param,
 
   decimal_t cos_theta = cos(angle);
   decimal_t sin_theta = sin(angle);
-
+  // d_cr 中心到后轮的距离
   decimal_t c_x = state.vec_position(0) + param.d_cr() * cos_theta;
   decimal_t c_y = state.vec_position(1) + param.d_cr() * sin_theta;
 

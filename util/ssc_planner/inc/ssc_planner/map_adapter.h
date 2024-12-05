@@ -15,6 +15,7 @@
 
 namespace planning {
 
+// 将semantic_map_manager统一转化为map_interface类型
 class SscPlannerAdapter : public SscPlannerMapItf {
  public:
   using IntegratedMap = semantic_map_manager::SemanticMapManager;
@@ -32,6 +33,7 @@ class SscPlannerAdapter : public SscPlannerMapItf {
       std::vector<LateralBehavior>* behaviors,
       vec_E<vec_E<common::Vehicle>>* trajs) override;
   ErrorType GetEgoDiscretBehavior(LateralBehavior* lat_behavior) override;
+  // 不同行为对应不同的前向轨迹
   ErrorType GetForwardTrajectories(
       std::vector<LateralBehavior>* behaviors,
       vec_E<vec_E<common::Vehicle>>* trajs,
@@ -39,7 +41,7 @@ class SscPlannerAdapter : public SscPlannerMapItf {
       override;
   ErrorType GetObstacleGrids(
       std::set<std::array<decimal_t, 2>>* obs_grids) override;
-  ErrorType set_map(std::shared_ptr<IntegratedMap> map);
+  ErrorType set_map(std::shared_ptr<IntegratedMap> map);    // 核心函数
 
  private:
   std::shared_ptr<IntegratedMap> map_;

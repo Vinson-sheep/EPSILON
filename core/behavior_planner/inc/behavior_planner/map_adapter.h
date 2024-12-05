@@ -7,6 +7,7 @@
 
 namespace planning {
 
+// 将语义地图变成行为层接口
 class BehaviorPlannerMapAdapter : public BehaviorPlannerMapItf {
  public:
   using IntegratedMap = semantic_map_manager::SemanticMapManager;

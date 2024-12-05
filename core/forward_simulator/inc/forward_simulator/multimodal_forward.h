@@ -9,6 +9,9 @@
 
 namespace planning {
 
+/**
+ * 根据不同的等级输出不同的参数
+ */
 class MultiModalForward {
  public:
   using Lane = common::Lane;

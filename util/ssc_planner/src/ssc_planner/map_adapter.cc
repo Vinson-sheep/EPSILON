@@ -11,6 +11,7 @@
 namespace planning {
 
 ErrorType SscPlannerAdapter::set_map(std::shared_ptr<IntegratedMap> map) {
+  // 就是semantic_map_manager
   map_ = map;  // maintain a snapshop of the environment
   is_valid_ = true;
   return kSuccess;
@@ -31,7 +32,7 @@ ErrorType SscPlannerAdapter::GetEgoState(State* state) {
   *state = map_->ego_vehicle().state();
   return kSuccess;
 }
-
+// 参考线只有一条？
 ErrorType SscPlannerAdapter::GetLocalReferenceLane(Lane* lane) {
   if (!is_valid_) return kWrongStatus;
   auto ref_lane = map_->ego_behavior().ref_lane;

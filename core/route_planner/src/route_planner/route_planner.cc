@@ -14,6 +14,7 @@ ErrorType RoutePlanner::Init(const std::string config) {
 ErrorType RoutePlanner::RunOnce() {
   switch (navi_mode_) {
     case kRandomExpansion:
+      // 感觉没干什么
       NaviLoopRandomExpansion();
       break;
     case kAssignedTarget:

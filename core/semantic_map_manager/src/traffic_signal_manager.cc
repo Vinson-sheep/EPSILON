@@ -7,6 +7,8 @@ TrafficSignalManager::TrafficSignalManager() { LoadSignals(); }
 ErrorType TrafficSignalManager::Init() { return kSuccess; }
 
 ErrorType TrafficSignalManager::LoadSignals() {
+  // 插入速度限制，但仿真器中没有任何处理
+
   // TODO: (@denny.ding) traffic signal should be controlled by phy sim
   // ~ hard code some
   // * Speed limit
@@ -117,12 +119,14 @@ ErrorType TrafficSignalManager::GetSpeedLimit(const State& state,
     IntersectionType intersection_type;
     decimal_t dist_to_startpt;
     decimal_t dist_to_endpt;
+    // 如果信号不起作用，则跳过
     if (CheckIntersectionTypeWithSignal(ref_fs, lane, speed_limit,
                                         &intersection_type, &dist_to_startpt,
                                         &dist_to_endpt) != kSuccess) {
       continue;
     }
     if (intersection_type != kNotIntersect) {
+      // 应该是减速距离
       decimal_t effect_speed_limit_dist =
           state.velocity > speed_limit.max_velocity()
               ? fabs(speed_limit.max_velocity() * speed_limit.max_velocity() -
@@ -136,6 +140,8 @@ ErrorType TrafficSignalManager::GetSpeedLimit(const State& state,
       //   printf("[denny]Speed limit ahead.\n");
       // if (intersection_type == kSignalControlled)
       //   printf("[denny]under speed limit control.\n");
+
+      // 如果信号即将发挥作用，或者信号已经发挥作用，则参考速度限制
       if ((intersection_type == kSignalAhead &&
            dist_to_startpt < effect_speed_limit_dist) ||
           intersection_type == kSignalControlled) {
@@ -152,6 +158,7 @@ ErrorType TrafficSignalManager::CheckIntersectionTypeWithSignal(
     const common::FrenetState& fs, const Lane& lane,
     const common::TrafficSignal& signal, IntersectionType* intersection_type,
     decimal_t* dist_to_startpt, decimal_t* dist_to_endpt) const {
+  // 判断信号在车辆的位置
   // ~ NOTICE: use some naive solution to determine whether
   // ~ a speed limit is effective for current <state, lane>
   common::StateTransformer stf(lane);
@@ -177,15 +184,20 @@ ErrorType TrafficSignalManager::CheckIntersectionTypeWithSignal(
         start_pt_fs[1] + lateral_range(0) < 0.0 &&
         end_pt_fs[1] + lateral_range(1) > 0.0 &&
         end_pt_fs[1] + lateral_range(0) < 0.0) {
+      // 信号在车辆之前
       if (fs.vec_s[0] < start_pt_fs[0]) {
         int_type = kSignalAhead;
         dist_to_start = start_pt_fs[0] - fs.vec_s[0];
         dist_to_end = end_pt_fs[0] - fs.vec_s[0];
-      } else if (fs.vec_s[0] >= start_pt_fs[0] && fs.vec_s[0] < end_pt_fs[0]) {
+      } 
+      // 信号包含车辆
+      else if (fs.vec_s[0] >= start_pt_fs[0] && fs.vec_s[0] < end_pt_fs[0]) {
         int_type = kSignalControlled;
         dist_to_start = start_pt_fs[0] - fs.vec_s[0];
         dist_to_end = end_pt_fs[0] - fs.vec_s[0];
-      } else {
+      } 
+      // 信号没起作用
+      else {
         int_type = kNotIntersect;
       }
     }

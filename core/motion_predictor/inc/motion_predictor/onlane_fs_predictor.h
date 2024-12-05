@@ -8,6 +8,7 @@
 
 namespace planning {
 
+// 仅使用简单方法预测行为
 class OnLaneFsPredictor {
  public:
   using Lane = common::Lane;
@@ -29,17 +30,20 @@ class OnLaneFsPredictor {
     decimal_t desired_vel = vehicle.state().velocity;
     planning::OnLaneForwardSimulation::Param sim_param;
     sim_param.idm_param.kDesiredVelocity = desired_vel;
+    // 插入第一个状态
     pred_states->push_back(vehicle.state());  // insert the first state
     common::Vehicle v_in = vehicle;
     common::StateTransformer stf = common::StateTransformer(lane);
     for (int i = 0; i < num_step; ++i) {
       if (lane.IsValid()) {
+        // 如果车道合理，则使用纯跟踪和IDM进行模拟
         if (planning::OnLaneForwardSimulation::PropagateOnce(
                 stf, v_in, common::Vehicle(), t_step, sim_param,
                 &desired_state) != kSuccess) {
           return kWrongStatus;
         }
       } else {
+        // 否则，
         if (planning::OnLaneForwardSimulation::PropagateOnce(
                 desired_vel, v_in, t_step,
                 planning::OnLaneForwardSimulation::Param(),

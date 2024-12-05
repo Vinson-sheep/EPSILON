@@ -64,6 +64,7 @@ bool ShapeUtils::CheckIfOrientedBoundingBoxIntersect(
   Vecf<2> proj_a, proj_b;
   decimal_t overlap_len;
   // decimal_t minoverlap = std::numeric_limits<decimal_t>::infinity();
+  // 遍历边界，判断边界是否有交集
   for (auto& axis : axes) {
     GetProjectionOnAxis(vertices_a, axis, &proj_a);
     GetProjectionOnAxis(vertices_b, axis, &proj_b);

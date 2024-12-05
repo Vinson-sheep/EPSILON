@@ -16,6 +16,7 @@
 #include "forward_simulator/onlane_forward_simulation.h"
 namespace planning {
 
+// 基本思路：对不同的行为进行模拟，获取自车和其他车辆轨迹，并对行为打分，选择最优行为进行输出
 class BehaviorPlanner : public Planner {
  public:
   using State = common::State;
@@ -24,6 +25,7 @@ class BehaviorPlanner : public Planner {
   using LateralBehavior = common::LateralBehavior;
   std::string Name() override;
 
+    // config没有被使用
   ErrorType Init(const std::string config) override;
 
   ErrorType RunOnce() override;
@@ -34,6 +36,7 @@ class BehaviorPlanner : public Planner {
    */
   void set_user_desired_velocity(const decimal_t desired_vel);
 
+    // hmi: Human-Machine Interface 
   /**
    * @brief L2-level human-commanded lane changes
    **/
@@ -68,6 +71,7 @@ class BehaviorPlanner : public Planner {
 
   std::vector<LateralBehavior> forward_behaviors() const;
 
+    // 虽然定义了Protected，但没有被继承
  protected:
   ErrorType ConstructReferenceLane(const LateralBehavior& lat_behavior,
                                    Lane* lane);

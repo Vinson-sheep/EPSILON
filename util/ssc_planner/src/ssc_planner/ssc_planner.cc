@@ -21,7 +21,7 @@ namespace planning {
 std::string SscPlanner::Name() { return std::string("ssc_planner"); }
 
 ErrorType SscPlanner::Init(const std::string config_path) {
-  ReadConfig(config_path);
+  ReadConfig(config_path);  // 从文件读取配置到cfg_
 
   // * Planner config
   printf("\nSscPlanner Config:\n");
@@ -33,7 +33,7 @@ ErrorType SscPlanner::Init(const std::string config_path) {
   LOG(INFO) << "[Ssc] -- weight_proximity: "
             << cfg_.planner_cfg().weight_proximity();
 
-  // * SscMap config
+  // * SscMap config 初始化SSC
   SscMap::Config map_cfg;
   map_cfg.map_size[0] = cfg_.map_cfg().map_size_x();
   map_cfg.map_size[1] = cfg_.map_cfg().map_size_y();
@@ -100,12 +100,12 @@ ErrorType SscPlanner::RunOnce() {
   if (!has_initial_state_) {
     initial_state_ = ego_vehicle_.state();
   }
-  has_initial_state_ = false;
+  has_initial_state_ = false; // 表示输入的初始状态已经使用
 
   is_lateral_independent_ =
       initial_state_.velocity > cfg_.planner_cfg().low_speed_threshold()
           ? true
-          : false;
+          : false;  // 速度大于阈值则进行横纵向解耦
   if (map_itf_->GetLocalReferenceLane(&nav_lane_local_) != kSuccess) {
     LOG(ERROR) << "[Ssc]fail to find ego lane.";
     return kWrongStatus;
@@ -144,6 +144,7 @@ ErrorType SscPlanner::RunOnce() {
 
   static TicToc timer_stf;
   timer_stf.tic();
+  // 将所有xy数据转化为sl坐标系
   if (StateTransformForInputData() != kSuccess) {
     LOG(ERROR) << "[Ssc]fail to transform state into ff.";
     return kWrongStatus;
@@ -158,6 +159,7 @@ ErrorType SscPlanner::RunOnce() {
   p_ssc_map_->ResetSscMap(initial_frenet_state_);
   // ~ For closed-loop simulation prediction
   int num_behaviors = forward_behaviors_.size();
+  // 针对每种行为，生成对应时空走廊
   for (int i = 0; i < num_behaviors; ++i) {
     if (!cfg_.planner_cfg().is_fitting_only()) {
       if (p_ssc_map_->ConstructSscMap(surround_forward_trajs_fs_[i],
@@ -178,6 +180,7 @@ ErrorType SscPlanner::RunOnce() {
       return kWrongStatus;
     }
   }
+  // 将规划出来的走廊转换为可供规划使用的形式，并临时存储在p_ssc_map_中
   if (kSuccess != p_ssc_map_->GetFinalGlobalMetricCubesList()) {
     LOG(ERROR) << "[Ssc]fail to get final corridor";
     return kWrongStatus;
@@ -192,7 +195,7 @@ ErrorType SscPlanner::RunOnce() {
     LOG(ERROR) << "[Ssc]fail to optimize qp trajectories.\n";
     return kWrongStatus;
   }
-
+  // 更新sl轨迹
   if (UpdateTrajectoryWithCurrentBehavior() != kSuccess) {
     LOG(ERROR) << "[Ssc]fail: current behavior "
                << static_cast<int>(ego_behavior_) << " not valid.";
@@ -225,6 +228,7 @@ ErrorType SscPlanner::RunOnce() {
 }  // namespace planning
 
 ErrorType SscPlanner::RunQpOptimization() {
+  // 提取所有的走廊
   vec_E<vec_E<common::SpatioTemporalSemanticCubeNd<2>>> cube_list =
       p_ssc_map_->final_corridor_vec();
   std::vector<int> if_corridor_valid = p_ssc_map_->if_corridor_valid();
@@ -290,13 +294,13 @@ ErrorType SscPlanner::RunQpOptimization() {
     }
 
     std::vector<decimal_t> ref_stamps;
-    vec_E<Vecf<2>> ref_points;
+    vec_E<Vecf<2>> ref_points;  // 原始参考轨迹的sl坐标
     vec_E<common::FrenetState> ref_states;
     for (int n = 0; n < num_states; n++) {
       ref_stamps.push_back(fs_vehicle_traj[n].frenet_state.time_stamp);
       ref_points.push_back(Vecf<2>(fs_vehicle_traj[n].frenet_state.vec_s[0],
                                    fs_vehicle_traj[n].frenet_state.vec_dt[0]));
-      ref_states.push_back(fs_vehicle_traj[n].frenet_state);
+      ref_states.push_back(fs_vehicle_traj[n].frenet_state);  // 所以为什么不直接复制
     }
 
     bool bezier_spline_gen_success = true;
@@ -304,53 +308,54 @@ ErrorType SscPlanner::RunQpOptimization() {
             cube_list[i], start_constraints, end_constraints, ref_stamps,
             ref_points, cfg_.planner_cfg().weight_proximity(),
             &bezier_spline) != kSuccess) {
-      if (is_lateral_independent_) {
-        LOG(ERROR) << "[Ssc]fail: solver error for behavior "
-                   << static_cast<int>(forward_behaviors_[i]);
-        decimal_t t0 = cube_list[i].front().t_lb;
-        for (auto& cube : cube_list[i]) {
-          LOG(ERROR) << std::fixed << std::setprecision(3) << "[Ssc] t: ["
-                     << cube.t_lb - t0 << ", " << cube.t_ub - t0 << "], x: ["
-                     << cube.p_lb[0] << ", " << cube.p_ub[0] << "], y: ["
-                     << cube.p_lb[1] << ", " << cube.p_ub[1] << "]";
-        }
-        LOG(ERROR) << "[Ssc]ref points: ";
-        for (int k = 0; k < ref_stamps.size(); ++k) {
-          LOG(ERROR) << std::fixed << std::setprecision(4) << "[Ssc]" << k
-                     << " t: " << ref_stamps[k] << ", x: " << ref_points[k].x()
-                     << ", y: " << ref_points[k].y();
-        }
-        LOG(ERROR) << "[Ssc]forward traj: ";
-        for (int k = 0; k < forward_trajs_[i].size(); ++k) {
-          auto v = forward_trajs_[i][k];
-          LOG(ERROR) << std::fixed << std::setprecision(4) << "[Ssc]" << k
-                     << " t: " << v.state().time_stamp
-                     << ", x: " << v.state().vec_position.x()
-                     << ", y: " << v.state().vec_position.y()
-                     << ", v: " << v.state().velocity;
-        }
-        LOG(ERROR) << "[Ssc]ref lane range: [" << nav_lane_local_.begin()
-                   << ", " << nav_lane_local_.end() << "]";
+      // if (is_lateral_independent_) {
+        // LOG(ERROR) << "[Ssc]fail: solver error for behavior "
+        //            << static_cast<int>(forward_behaviors_[i]);
+        // decimal_t t0 = cube_list[i].front().t_lb;
+        // for (auto& cube : cube_list[i]) {
+        //   LOG(ERROR) << std::fixed << std::setprecision(3) << "[Ssc] t: ["
+        //              << cube.t_lb - t0 << ", " << cube.t_ub - t0 << "], x: ["
+        //              << cube.p_lb[0] << ", " << cube.p_ub[0] << "], y: ["
+        //              << cube.p_lb[1] << ", " << cube.p_ub[1] << "]";
+        // }
+        // LOG(ERROR) << "[Ssc]ref points: ";
+        // for (int k = 0; k < ref_stamps.size(); ++k) {
+        //   LOG(ERROR) << std::fixed << std::setprecision(4) << "[Ssc]" << k
+        //              << " t: " << ref_stamps[k] << ", x: " << ref_points[k].x()
+        //              << ", y: " << ref_points[k].y();
+        // }
+        // LOG(ERROR) << "[Ssc]forward traj: ";
+        // for (int k = 0; k < forward_trajs_[i].size(); ++k) {
+        //   auto v = forward_trajs_[i][k];
+        //   LOG(ERROR) << std::fixed << std::setprecision(4) << "[Ssc]" << k
+        //              << " t: " << v.state().time_stamp
+        //              << ", x: " << v.state().vec_position.x()
+        //              << ", y: " << v.state().vec_position.y()
+        //              << ", v: " << v.state().velocity;
+        // }
+        // LOG(ERROR) << "[Ssc]ref lane range: [" << nav_lane_local_.begin()
+        //            << ", " << nav_lane_local_.end() << "]";
 
-        LOG(ERROR) << std::fixed << std::setprecision(4)
-                   << "[Ssc]Start sd velocity (" << start_constraints[1](0)
-                   << ", " << start_constraints[1](1) << ")";
-        LOG(ERROR) << std::fixed << std::setprecision(4)
-                   << "[Ssc]Start sd acceleration (" << start_constraints[2](0)
-                   << ", " << start_constraints[2](1) << ")";
-        LOG(ERROR) << std::fixed << std::setprecision(4)
-                   << "[Ssc]End sd position (" << end_constraints[0](0) << ", "
-                   << end_constraints[0](1) << ")";
-        LOG(ERROR) << std::fixed << std::setprecision(4)
-                   << "[Ssc]End sd velocity (" << end_constraints[1](0) << ", "
-                   << end_constraints[1](1) << ")";
-        LOG(ERROR) << std::fixed << std::setprecision(4)
-                   << "[Ssc]End state stamp: "
-                   << fs_vehicle_traj[num_states - 1].frenet_state.time_stamp;
-      }
+        // LOG(ERROR) << std::fixed << std::setprecision(4)
+        //            << "[Ssc]Start sd velocity (" << start_constraints[1](0)
+        //            << ", " << start_constraints[1](1) << ")";
+        // LOG(ERROR) << std::fixed << std::setprecision(4)
+        //            << "[Ssc]Start sd acceleration (" << start_constraints[2](0)
+        //            << ", " << start_constraints[2](1) << ")";
+        // LOG(ERROR) << std::fixed << std::setprecision(4)
+        //            << "[Ssc]End sd position (" << end_constraints[0](0) << ", "
+        //            << end_constraints[0](1) << ")";
+        // LOG(ERROR) << std::fixed << std::setprecision(4)
+        //            << "[Ssc]End sd velocity (" << end_constraints[1](0) << ", "
+        //            << end_constraints[1](1) << ")";
+        // LOG(ERROR) << std::fixed << std::setprecision(4)
+        //            << "[Ssc]End state stamp: "
+        //            << fs_vehicle_traj[num_states - 1].frenet_state.time_stamp;
+      // }
       bezier_spline_gen_success = false;
     }
 
+    // 直接将起止状态用五次多项式连接？
     FrenetPrimitive primitive;
     if (!is_lateral_independent_) {
       primitive.Connect(initial_frenet_state_,
@@ -377,6 +382,7 @@ ErrorType SscPlanner::UpdateTrajectoryWithCurrentBehavior() {
   if (num_valid_behaviors < 1) {
     return kWrongStatus;
   }
+  // 如果当前行为有对应轨迹，则直接使用
   bool find_exact_match_behavior = false;
   int index = 0;
   for (int i = 0; i < num_valid_behaviors; i++) {
@@ -385,6 +391,7 @@ ErrorType SscPlanner::UpdateTrajectoryWithCurrentBehavior() {
       index = i;
     }
   }
+  // 如果当前行为没有对应行为，则使用速度保持轨迹
   bool find_candidate_behavior = false;
   LateralBehavior candidate_bahavior = common::LateralBehavior::kLaneKeeping;
   if (!find_exact_match_behavior) {
@@ -435,6 +442,7 @@ ErrorType SscPlanner::StateTransformForInputData() {
   vec_E<Vec2f> global_point_vec;
   int num_v;
 
+  // 获取自车当前位置的四个角
   // ~ Stage I. Package states and points
   // * Ego vehicle state and vertices
   {
@@ -446,6 +454,7 @@ ErrorType SscPlanner::StateTransformForInputData() {
     global_point_vec.insert(global_point_vec.end(), v_vec.begin(), v_vec.end());
   }
 
+  // 遍历多条前向轨迹，获取自车的四个角
   // * Ego forward simulation trajs states and vertices
   {
     common::VehicleParam ego_param = ego_vehicle_.param();
@@ -465,6 +474,7 @@ ErrorType SscPlanner::StateTransformForInputData() {
     }
   }
 
+  // 遍历附近车辆的前向轨迹，获取车辆四个角
   // * Surrounding vehicle trajs from MPDM
   {
     for (int i = 0; i < surround_forward_trajs_.size(); ++i) {
@@ -485,6 +495,7 @@ ErrorType SscPlanner::StateTransformForInputData() {
     }
   }
 
+  // 遍历其他障碍物点
   // * Obstacle grids
   {
     for (auto it = obstacle_grids_.begin(); it != obstacle_grids_.end(); ++it) {
@@ -496,6 +507,7 @@ ErrorType SscPlanner::StateTransformForInputData() {
   vec_E<FrenetState> frenet_state_vec(global_state_vec.size());
   vec_E<Vec2f> fs_point_vec(global_point_vec.size());
 
+  // 将所有目标点转换为sl坐标系下
   // ~ Stage II. Do transformation in multi-thread flavor
 #if USE_OPENMP
   TicToc timer_stf;

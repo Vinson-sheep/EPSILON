@@ -51,6 +51,7 @@ void IdealSteerModel::TruncateControl(const decimal_t &dt) {
   desired_lon_acc_ = truncate(desired_lon_acc_, -max_lon_dec_, max_lon_acc_);
   control_.velocity = std::max(state_.velocity + desired_lon_acc_ * dt, 0.0);
 
+  // 向心加速度
   desired_lat_acc_ =
       pow(control_.velocity, 2) * (tan(control_.steer) / wheelbase_len_);
   decimal_t lat_acc_ori = pow(state_.velocity, 2) * state_.curvature;
@@ -117,11 +118,11 @@ void IdealSteerModel::set_state(const IdealSteerModel::State &state) {
 }
 
 void IdealSteerModel::UpdateInternalState(void) {
-  internal_state_[0] = state_.vec_position(0);
-  internal_state_[1] = state_.vec_position(1);
-  internal_state_[2] = state_.angle;
-  internal_state_[3] = state_.velocity;
-  internal_state_[4] = state_.steer;
+  internal_state_[0] = state_.vec_position(0);  // 位置
+  internal_state_[1] = state_.vec_position(1); 
+  internal_state_[2] = state_.angle;      // 角速度 
+  internal_state_[3] = state_.velocity;   // 速度
+  internal_state_[4] = state_.steer;      // 前轮转角
 }
 
 }  // namespace simulator

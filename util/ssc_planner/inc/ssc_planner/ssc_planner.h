@@ -38,7 +38,7 @@ class SscPlanner : public Planner {
   using Lane = common::Lane;
   using State = common::State;
   using Vehicle = common::Vehicle;
-  using LateralBehavior = common::LateralBehavior;
+  using LateralBehavior = common::LateralBehavior;  // 自车横向行为 (保持/左转道/右转道)
   using FrenetState = common::FrenetState;
   using FrenetTrajectory = common::FrenetTrajectory;
   using FrenetPrimitive = common::FrenetPrimitive;
@@ -71,6 +71,7 @@ class SscPlanner : public Planner {
 
   decimal_t time_origin() const { return time_origin_; }
 
+  // 没用上
   std::unordered_map<int, vec_E<common::FsVehicle>> sur_vehicle_trajs_fs()
       const {
     return sur_vehicle_trajs_fs_;
@@ -85,6 +86,7 @@ class SscPlanner : public Planner {
     return forward_trajs_fs_;
   }
 
+  // 没用上
   vec_E<Vec2f> ego_vehicle_contour_fs() const {
     return fs_ego_vehicle_.vertices;
   }
@@ -94,10 +96,12 @@ class SscPlanner : public Planner {
   // BezierSpline bezier_spline() const { return bezier_spline_; }
 
   std::unique_ptr<FrenetTrajectory> trajectory() const {
+    // 如果横纵向耦合，使用低速轨迹
     if (!is_lateral_independent_) {
       return std::unique_ptr<FrenetPrimitiveTrajectory>(
           new FrenetPrimitiveTrajectory(low_spd_alternative_traj_));
     }
+    // 如果横纵向分离，高速轨迹
     return std::unique_ptr<FrenetBezierTrajectory>(
         new FrenetBezierTrajectory(trajectory_));
   }
@@ -175,7 +179,7 @@ class SscPlanner : public Planner {
   // Initial solution for optimization
   common::FsVehicle fs_ego_vehicle_;
   vec_E<vec_E<common::FsVehicle>> forward_trajs_fs_;
-  std::unordered_map<int, vec_E<common::FsVehicle>> sur_vehicle_trajs_fs_;
+  std::unordered_map<int, vec_E<common::FsVehicle>> sur_vehicle_trajs_fs_;  // 没用上
   vec_E<std::unordered_map<int, vec_E<common::FsVehicle>>>
       surround_forward_trajs_fs_;
 
@@ -191,11 +195,11 @@ class SscPlanner : public Planner {
   vec_E<common::SpatioTemporalSemanticCubeNd<2>> final_corridor_;
   vec_E<common::FrenetState> final_ref_states_;
 
-  common::StateTransformer stf_;
+  common::StateTransformer stf_;  // sl->xy
   // Map
-  SscPlannerMapItf* map_itf_;
-  bool map_valid_ = false;
-  SscMap* p_ssc_map_;
+  SscPlannerMapItf* map_itf_; // 外部地图，用于获取自车和障碍物等信息
+  bool map_valid_ = false;  // 地图是否可用 (没有使用)
+  SscMap* p_ssc_map_;       // 语义地图，用于规划
 
   decimal_t stamp_ = 0.0;
   decimal_t time_cost_ = 0.0;

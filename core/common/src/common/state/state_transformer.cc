@@ -58,11 +58,13 @@ ErrorType StateTransformer::GetStateFromFrenetState(const FrenetState& fs,
                                       tan_delta_theta) *
                   cn_delta_theta * cn_delta_theta / one_minus_curd;
   s->curvature = (lhs + curvature) * cn_delta_theta / one_minus_curd;
+  // 此处与推导不一样
   decimal_t delta_theta_derivative = 1.0 /
                                      (1 + tan_delta_theta * tan_delta_theta) *
                                      (fs.vec_ds[2] * one_minus_curd +
                                       curvature * fs.vec_ds[1] * fs.vec_ds[1]) /
                                      pow(one_minus_curd, 2);
+  // 此处与推导不一样
   s->acceleration =
       fs.vec_s[2] * one_minus_curd / cn_delta_theta +
       fs.vec_s[1] * fs.vec_s[1] / cn_delta_theta *
@@ -133,7 +135,7 @@ ErrorType StateTransformer::GetFrenetStateFromState(const State& s,
   }
   decimal_t lane_orientation = vec2d_to_angle(lane_tangent_vec);
   Vecf<2> lane_normal_vec = Vecf<2>(-lane_tangent_vec[1], lane_tangent_vec[0]);
-
+  // 理想情况下为0，但有精度误差
   const decimal_t step_tolerance = 0.5;
   if (fabs((s.vec_position - lane_position).dot(lane_tangent_vec)) >
       step_tolerance) {
@@ -168,14 +170,14 @@ ErrorType StateTransformer::GetFrenetStateFromState(const State& s,
   decimal_t delta_theta_derivative =
       1 / (1 + pow(tan_delta_theta, 2)) *
       (dss * one_minus_curd + curvature * pow(ds, 2)) / pow(one_minus_curd, 2);
-
+  // 此处与推导不一致
   decimal_t spp =
       (s.acceleration -
        pow(sp, 2) / cn_delta_theta *
            (one_minus_curd * tan_delta_theta * delta_theta_derivative -
             (curvature_derivative * d + curvature * ds))) *
       cn_delta_theta / one_minus_curd;
-
+  // 只计算一部分
   fs->Load(Vecf<3>(arc_length, sp, spp), Vecf<3>(d, ds, dss),
            FrenetState::kInitWithDs);
   fs->time_stamp = s.time_stamp;

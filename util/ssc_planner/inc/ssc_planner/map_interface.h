@@ -18,6 +18,10 @@
 #include "common/state/state.h"
 
 namespace planning {
+
+/**
+ * 外部唯一输入
+ */
 class SscPlannerMapItf {
  public:
   using ObstacleMapType = uint8_t;

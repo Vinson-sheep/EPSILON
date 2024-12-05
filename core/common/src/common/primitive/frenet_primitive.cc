@@ -12,16 +12,20 @@ ErrorType FrenetPrimitive::Connect(const FrenetState& fs0,
                                    fs1.vec_s(0), fs1.vec_s(1), fs1.vec_s(2), T);
 
   if (is_lateral_independent) {
+    // 横纵向解耦，使用时间T参数化
     poly_d_.GetJerkOptimalConnection(fs0.vec_dt(0), fs0.vec_dt(1),
                                      fs0.vec_dt(2), fs1.vec_dt(0),
                                      fs1.vec_dt(1), fs1.vec_dt(2), T);
   } else {
+    // 纵向距离很短，横向使用无穷远参数化？？
     if (fs1.vec_s[0] - fs0.vec_s[0] < kSmallDistanceThreshold_) {
       const decimal_t virtual_large_distance = 100.0;
       poly_d_.GetJerkOptimalConnection(
           fs0.vec_ds(0), fs0.vec_ds(1), fs0.vec_ds(2), fs1.vec_ds(0),
           fs1.vec_ds(1), fs1.vec_ds(2), virtual_large_distance);
-    } else {
+    } 
+    // 纵向距离很长，则使用纵向距离进行参数化？
+    else {
       poly_d_.GetJerkOptimalConnection(
           fs0.vec_ds(0), fs0.vec_ds(1), fs0.vec_ds(2), fs1.vec_ds(0),
           fs1.vec_ds(1), fs1.vec_ds(2), fs1.vec_s[0] - fs0.vec_s[0]);

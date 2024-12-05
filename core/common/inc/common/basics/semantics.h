@@ -65,9 +65,9 @@ class VehicleParam {
  private:
   double width_ = 1.90;
   double length_ = 4.88;
-  double wheel_base_ = 2.85;
-  double front_suspension_ = 0.93;
-  double rear_suspension_ = 1.10;
+  double wheel_base_ = 2.85;  // 轴距
+  double front_suspension_ = 0.93;  // 前轮中心到车辆保险杠最前端的距离
+  double rear_suspension_ = 1.10;   // 后轮中心到车辆保险杠最后端的距离
   double max_steering_angle_ = 45.0;
 
   double max_longitudinal_acc_ = 2.0;
@@ -170,6 +170,7 @@ struct EnumClassHash {
   }
 };
 
+// 横向行为的概率分布
 struct ProbDistOfLatBehaviors {
   bool is_valid = false;
   std::unordered_map<LateralBehavior, decimal_t, EnumClassHash> probs{
@@ -182,6 +183,7 @@ struct ProbDistOfLatBehaviors {
   }
 
   bool CheckIfNormalized() const {
+    // 判断概率和是否为1
     decimal_t sum = 0.0;
     for (const auto &entry : probs) {
       sum += entry.second;
@@ -218,6 +220,7 @@ struct ProbDistOfLatBehaviors {
  */
 
 struct SemanticBehavior {
+  // 自车横纵向行为+自车轨迹+其他轨迹
   LateralBehavior lat_behavior;
   LongitudinalBehavior lon_behavior;
   Lane ref_lane;
@@ -314,11 +317,12 @@ struct VehicleControlSignalSet {
 };
 
 struct GridMapMetaInfo {
+  // 栅格地图基本信息 长宽高
   int width = 0;
   int height = 0;
   double resolution = 0;
-  double w_metric = 0;
-  double h_metric = 0;
+  double w_metric = 0;  // 总宽
+  double h_metric = 0;  // 总长
 
   /**
    * @brief Construct a new Grid Map Meta Info object

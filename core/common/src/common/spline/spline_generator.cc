@@ -4,6 +4,8 @@
 
 namespace common {
 
+// samples 中间点
+// para 参数t/s
 template <int N_DEG, int N_DIM>
 ErrorType SplineGenerator<N_DEG, N_DIM>::GetCubicSplineBySampleInterpolation(
     const vec_Vecf<N_DIM>& samples, const std::vector<decimal_t>& para,
@@ -34,6 +36,7 @@ ErrorType SplineGenerator<N_DEG, N_DIM>::GetCubicSplineBySampleInterpolation(
   vec_Vecf<N_DIM> interpolated_samples{samples[0]};
   std::vector<decimal_t> interpolated_para{para[0]};
 
+  // 对数据进行插值，避免过分稀疏
   for (int i = 1; i < num_samples; i++) {
     decimal_t dis = para[i] - para[i - 1];
     if (dis > para_delta_threshold) {
@@ -65,7 +68,7 @@ ErrorType SplineGenerator<N_DEG, N_DIM>::GetCubicSplineBySampleInterpolation(
       Y.push_back(interpolated_samples[s][i]);
     }
 
-    tk::spline cubic_fitting;
+    tk::spline cubic_fitting; // 用于三次样条插值的开源库
     cubic_fitting.set_points(X, Y);
 
     for (int n = 0; n < cubic_fitting.num_pts() - 1; n++) {

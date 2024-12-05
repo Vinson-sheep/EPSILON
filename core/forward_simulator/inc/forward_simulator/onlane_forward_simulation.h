@@ -15,6 +15,7 @@
 
 namespace planning {
 
+// 全是static函数
 class OnLaneForwardSimulation {
  public:
   using Lane = common::Lane;
@@ -39,6 +40,7 @@ class OnLaneForwardSimulation {
     bool auto_decelerate_if_lat_failed = true;
   };
 
+  // 根据前后车距和车速估算当前车辆的理想状态
   static ErrorType GetTargetStateOnTargetLane(
       const common::StateTransformer& stf_target,
       const common::Vehicle& ego_vehicle,
@@ -56,8 +58,8 @@ class OnLaneForwardSimulation {
 
     bool has_front = false;
     common::FrenetState front_fs;
-    decimal_t s_ref_front = -1;  // tail of front vehicle
-    decimal_t s_thres_front = -1;
+    decimal_t s_ref_front = -1;  // 前车位置
+    decimal_t s_thres_front = -1; // 前车位置阈值
     if (gap_front_vehicle.id() != -1 &&
         kSuccess == stf_target.GetFrenetStateFromState(
                         gap_front_vehicle.state(), &front_fs)) {
@@ -71,8 +73,8 @@ class OnLaneForwardSimulation {
 
     bool has_rear = false;
     common::FrenetState rear_fs;
-    decimal_t s_ref_rear = -1;  // head of rear vehicle
-    decimal_t s_thres_rear = -1;
+    decimal_t s_ref_rear = -1;  // 后车位置
+    decimal_t s_thres_rear = -1;  // 后车距离阈值
     if (gap_rear_vehicle.id() != -1 &&
         kSuccess == stf_target.GetFrenetStateFromState(gap_rear_vehicle.state(),
                                                        &rear_fs)) {
@@ -96,6 +98,8 @@ class OnLaneForwardSimulation {
         ego_vehicle.state().velocity +
         (param.idm_param.kDesiredVelocity - ego_vehicle.state().velocity) *
             p_v_ego;
+    
+    // 如果前后有车，理想位置在中间，
     if (has_front && has_rear) {
       // * has both front and rear vehicle
       if (s_ref_front < s_ref_rear) {
@@ -111,6 +115,7 @@ class OnLaneForwardSimulation {
       desired_s =
           std::min(std::max(s_thres_rear, ego_fs.vec_s[0]), s_thres_front);
 
+      // 估算理想速度
       decimal_t s_err_front = s_thres_front - ego_fs.vec_s[0];
       decimal_t v_ref_front =
           std::max(0.0, gap_front_vehicle.state().velocity +
@@ -315,13 +320,14 @@ class OnLaneForwardSimulation {
     return kSuccess;
   }
 
+  // 横向控制-纯跟踪 纵向控制-IDM
   static ErrorType PropagateOnce(const common::StateTransformer& stf,
                                  const common::Vehicle& ego_vehicle,
                                  const Vehicle& leading_vehicle,
                                  const decimal_t& dt, const Param& param,
                                  State* desired_state) {
     common::State current_state = ego_vehicle.state();
-    decimal_t wheelbase_len = ego_vehicle.param().wheel_base();
+    decimal_t wheelbase_len = ego_vehicle.param().wheel_base(); // 轴距
     auto sim_param = param;
 
     // * Step I: Calculate steering
@@ -334,11 +340,14 @@ class OnLaneForwardSimulation {
     }
 
     decimal_t steer, velocity;
+    // 基于frenet_frame
     if (!steer_calculation_failed) {
+      // 计算前向参考距离
       decimal_t approx_lookahead_dist =
           std::min(std::max(param.steer_control_min_lookahead_dist,
                             current_state.velocity * param.steer_control_gain),
                    param.steer_control_max_lookahead_dist);
+      // 基于纯跟踪法，算出转向
       if (CalcualateSteer(stf, current_state, current_fs, wheelbase_len,
                           Vec2f(approx_lookahead_dist, 0.0),
                           &steer) != kSuccess) {
@@ -428,6 +437,7 @@ class OnLaneForwardSimulation {
     return kSuccess;
   }
 
+  // 纯跟踪法
   static ErrorType CalcualateSteer(const common::StateTransformer& stf,
                                    const State& current_state,
                                    const FrenetState& current_fs,
@@ -521,6 +531,7 @@ class OnLaneForwardSimulation {
                                          const decimal_t wheelbase_len,
                                          const decimal_t dt, const Param& param,
                                          State* state) {
+    // steer和velocity是控制量，恒定控制量，车辆运动学，积分
     simulator::IdealSteerModel model(
         wheelbase_len, param.idm_param.kAcceleration,
         param.idm_param.kHardBrakingDeceleration, param.max_lon_acc_jerk,
