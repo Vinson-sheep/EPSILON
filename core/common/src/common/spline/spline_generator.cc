@@ -356,6 +356,12 @@ ErrorType SplineGenerator<N_DEG, N_DIM>::GetSplineFromFreeStateVec(
   return kSuccess;
 }
 
+// 基于OOQP生成贝塞尔轨迹
+// J = 0.5 x^T Q x + c^T x
+// s.t. 
+// Ax = b
+// Cx \in [lbd, ubd]
+// l <= x <= u
 template <int N_DEG, int N_DIM>
 ErrorType SplineGenerator<N_DEG, N_DIM>::GetBezierSplineUsingCorridor(
     const vec_E<SpatioTemporalSemanticCubeNd<N_DIM>>& cubes,
@@ -368,13 +374,17 @@ ErrorType SplineGenerator<N_DEG, N_DIM>::GetBezierSplineUsingCorridor(
   int num_order = N_DEG + 1;
   int derivative_degree = 3;
 
+  // x的排布 [dim1[seg1, seg2, ...], dim2[....]]
+
   // ~ Stage I: stack objective
   int total_num_vals = N_DIM * num_segments * num_order;
+  // Q有明显的稀疏结构
   Eigen::SparseMatrix<double, Eigen::RowMajor> Q(total_num_vals,
                                                  total_num_vals);
   Q.reserve(
       Eigen::VectorXi::Constant(N_DIM * num_segments * num_order, num_order));
   {
+    // 获取minimal jerk目标矩阵 t = [0, 1]
     MatNf<N_DEG + 1> hessian =
         BezierUtils<N_DEG>::GetBezierHessianMat(derivative_degree);
     int idx, idy;
@@ -384,6 +394,7 @@ ErrorType SplineGenerator<N_DEG, N_DIM>::GetBezierSplineUsingCorridor(
       for (int d = 0; d < N_DIM; d++) {
         for (int j = 0; j < num_order; j++) {
           for (int k = 0; k < num_order; k++) {
+            // 对目标矩阵进行矫正 t = [0, T]
             idx = d * num_segments * num_order + n * num_order + j;
             idy = d * num_segments * num_order + n * num_order + k;
             val = hessian(j, k) / pow(duration, 2 * derivative_degree - 3);
@@ -404,10 +415,12 @@ ErrorType SplineGenerator<N_DEG, N_DIM>::GetBezierSplineUsingCorridor(
       Eigen::VectorXi::Constant(N_DIM * num_segments * num_order, num_order));
 
   // * Only position difference is considered
+  // 相似性代价
   if (!ref_stamps.empty()) {
     int idx, idy;
     int num_ref_samples = ref_stamps.size();
     for (int i = 0; i < num_ref_samples; i++) {
+      // 此处校验合法性
       if (ref_stamps[i] < cubes[0].t_lb ||
           ref_stamps[i] > cubes[num_segments - 1].t_ub)
         continue;
@@ -418,6 +431,7 @@ ErrorType SplineGenerator<N_DEG, N_DIM>::GetBezierSplineUsingCorridor(
           break;
         }
       }
+      // ？？
       n = std::min(num_segments - 1, n);
       decimal_t s = cubes[n].t_ub - cubes[n].t_lb;
       decimal_t t = ref_stamps[i] - cubes[n].t_lb;
@@ -445,6 +459,7 @@ ErrorType SplineGenerator<N_DEG, N_DIM>::GetBezierSplineUsingCorridor(
 
   Q = 2 * (Q + P);  // 0.5 * x' * Q * x
 
+  // Ax = b
   // ~ Stage II: stack equality constraints
   int num_continuity = 3;  // continuity up to jerk
   int num_connections = num_segments - 1;
@@ -990,6 +1005,7 @@ ErrorType SplineGenerator<N_DEG, N_DIM>::GetBezierSplineUsingCorridor(
     }
   }
 
+  // Cx \in [lbd, ubd]
   // ~ Stage III: stack inequality constraints
   int total_num_ineq = 0;
   for (int i = 0; i < num_segments; i++) {
@@ -1059,6 +1075,7 @@ ErrorType SplineGenerator<N_DEG, N_DIM>::GetBezierSplineUsingCorridor(
     }
   }
 
+  // u和l仅仅表示占位，故取double最大最小值
   // dummy constraints
   Eigen::VectorXd u = std::numeric_limits<double>::max() *
                       Eigen::VectorXd::Ones(total_num_vals);
